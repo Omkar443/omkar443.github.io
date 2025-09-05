@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Coinbase Wallet Recovery Phrase Leak - Bug Bounty Case Study</title>
+    <meta name="description" content="Case study of a Coinbase Wallet Android vulnerability allowing seed phrase theft via accessibility services.">
+    <meta name="keywords" content="coinbase, bug bounty, android security, seed phrase, accessibility, cryptocurrency security">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Modern CSS Reset */
@@ -81,6 +83,42 @@
             margin-bottom: 10px;
         }
 
+        /* TL;DR Section */
+        .tldr {
+            background: rgba(48, 54, 61, 0.3);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+            border-left: 4px solid #ff7b72;
+        }
+
+        .tldr h3 {
+            color: #ff7b72;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tldr ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .tldr li {
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .tldr li::before {
+            content: '•';
+            color: #79c0ff;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
         /* Content Styles */
         .blog-content {
             background: rgba(22, 27, 34, 0.8);
@@ -133,6 +171,59 @@
             font-family: 'Fira Code', monospace;
             font-size: 0.9em;
             color: #e6edf3;
+        }
+
+        a {
+            color: #79c0ff;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: #ff7b72;
+            text-decoration: underline;
+        }
+
+        /* Callout Styles */
+        .callout {
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .callout-danger {
+            background: rgba(255, 123, 114, 0.1);
+            border-color: #ff7b72;
+        }
+
+        .callout-info {
+            background: rgba(121, 192, 255, 0.1);
+            border-color: #79c0ff;
+        }
+
+        .callout-warning {
+            background: rgba(210, 168, 255, 0.1);
+            border-color: #d2a8ff;
+        }
+
+        .callout h4 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .callout-danger h4 {
+            color: #ff7b72;
+        }
+
+        .callout-info h4 {
+            color: #79c0ff;
+        }
+
+        .callout-warning h4 {
+            color: #d2a8ff;
         }
 
         /* Timeline Styles */
@@ -248,6 +339,10 @@
             content: 'Python';
         }
 
+        .code-block.log::before {
+            content: 'Log Output';
+        }
+
         .code-comment {
             color: #8b949e;
         }
@@ -264,13 +359,53 @@
             color: #d2a8ff;
         }
 
-        /* Disclaimer Styles */
-        .disclaimer {
-            background: rgba(255, 123, 114, 0.1);
-            border-left: 4px solid #ff7b72;
-            padding: 20px;
+        /* Flowchart Styles */
+        .flowchart {
+            background: rgba(22, 27, 34, 0.8);
+            border-radius: 8px;
+            padding: 25px;
             margin: 30px 0;
-            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #30363d;
+        }
+
+        .flowchart h3 {
+            margin-bottom: 20px;
+            color: #79c0ff;
+        }
+
+        .flow-step {
+            display: inline-block;
+            background: rgba(48, 54, 61, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px;
+            width: 120px;
+            vertical-align: middle;
+            position: relative;
+        }
+
+        .flow-arrow {
+            display: inline-block;
+            font-size: 24px;
+            color: #7d8590;
+            vertical-align: middle;
+            margin: 0 5px;
+        }
+
+        .flow-malicious {
+            background: rgba(255, 123, 114, 0.2);
+            border: 1px solid #ff7b72;
+        }
+
+        .flow-user {
+            background: rgba(121, 192, 255, 0.2);
+            border: 1px solid #79c0ff;
+        }
+
+        .flow-app {
+            background: rgba(210, 168, 255, 0.2);
+            border: 1px solid #d2a8ff;
         }
 
         /* Footer Styles */
@@ -298,11 +433,12 @@
         .social-links a {
             color: #7d8590;
             font-size: 1.2em;
-            transition: color 0.2s ease;
+            transition: color 0.2s ease, transform 0.2s ease;
         }
 
         .social-links a:hover {
             color: #79c0ff;
+            transform: translateY(-3px);
         }
 
         /* Responsive Design */
@@ -318,6 +454,18 @@
             
             .container {
                 padding: 15px;
+            }
+
+            .flow-step {
+                display: block;
+                width: auto;
+                margin: 15px auto;
+            }
+
+            .flow-arrow {
+                display: block;
+                margin: 10px auto;
+                transform: rotate(90deg);
             }
         }
 
@@ -359,11 +507,22 @@
         </header>
 
         <div class="blog-content">
+            <!-- TL;DR Section -->
+            <div class="tldr">
+                <h3><i class="fas fa-bolt"></i> TL;DR</h3>
+                <ul>
+                    <li><strong>Vulnerability:</strong> Seed phrase leak via Accessibility Services</li>
+                    <li><strong>Impact:</strong> Total fund compromise, irreversible</li>
+                    <li><strong>Status:</strong> Reported to Coinbase, marked "Not Applicable"</li>
+                    <li><strong>Lesson:</strong> Stronger threat modeling needed for critical apps</li>
+                </ul>
+            </div>
+
             <h2><i class="fas fa-door-open"></i> Introduction</h2>
             <p>In July 2025, I discovered a critical vulnerability in the <strong>Coinbase Wallet for Android</strong> that could lead to the <strong>irreversible compromise of a user's cryptocurrency assets</strong>. What followed was a month-long journey through the bug bounty process that ended not with resolution, but with lessons on the challenges of responsible disclosure.</p>
-            <p>This post details the vulnerability, the evidence submitted, and the full timeline of interactions.</p>
+            <p>This post details the <a href="#vulnerability">vulnerability</a>, the <a href="#evidence">evidence submitted</a>, and the full <a href="#timeline">timeline of interactions</a>.</p>
 
-            <h2><i class="fas fa-key"></i> The Vulnerability: Exposing the Master Key</h2>
+            <h2 id="vulnerability"><i class="fas fa-key"></i> The Vulnerability: Exposing the Master Key</h2>
             <p>The <strong>recovery phrase</strong> (seed phrase) is the <em>master key</em> to a cryptocurrency wallet. Anyone who gains it has <strong>permanent control</strong> over all funds. Unlike a password, it cannot be rotated.</p>
             
             <div class="code-block javascript">
@@ -375,10 +534,12 @@
             
             <p>During testing, I found that Coinbase Wallet displays the recovery phrase after authentication in a standard Android <code>TextView</code>. Unfortunately, this made it visible to the <strong>Android Accessibility Framework</strong>.</p>
             
-            <h3>Impact:</h3>
-            <p>Any malicious app with the <code>BIND_ACCESSIBILITY_SERVICE</code> permission could silently read and exfiltrate the phrase. Accessibility abuse is a <strong>well-documented malware vector</strong> on Android.</p>
+            <div class="callout callout-danger">
+                <h4><i class="fas fa-exclamation-triangle"></i> Impact</h4>
+                <p>A malicious app with the <code>BIND_ACCESSIBILITY_SERVICE</code> permission could silently read and exfiltrate the phrase, leading to irreversible theft of all assets.</p>
+            </div>
 
-            <h2><i class="fas fa-vial"></i> The Evidence: Proof-of-Concept</h2>
+            <h2 id="evidence"><i class="fas fa-vial"></i> The Evidence: Proof-of-Concept</h2>
             <p>To demonstrate the risk, I created a working PoC:</p>
             <ul>
                 <li><strong>Functional Android app</strong>: Captures the recovery phrase when displayed.</li>
@@ -395,9 +556,26 @@
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.<span class="code-function">exfiltrate</span>(seed_phrase)
             </div>
 
-            <p>The results were consistent and reproducible.</p>
+            <div class="code-block log">
+                [13:06:23] 🚨 RECOVERY PHRASE CAPTURED<br>
+                Phrase: neutral lucky mandate value vacuum turtle root crazy rug apart bubble dirt<br>
+                [13:06:24] 📤 PHRASE EXFILTRATED TO: 185.243.115.107
+            </div>
 
-            <h2><i class="fas fa-history"></i> Timeline</h2>
+            <p>The results were consistent and reproducible across multiple test devices.</p>
+
+            <div class="flowchart">
+                <h3><i class="fas fa-project-diagram"></i> Attack Flow</h3>
+                <div class="flow-step flow-user">User</div>
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="flow-step flow-app">Coinbase App</div>
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="flow-step flow-malicious">Malicious Accessibility Service</div>
+                <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="flow-step flow-malicious">Attacker Server</div>
+            </div>
+
+            <h2 id="timeline"><i class="fas fa-history"></i> Timeline</h2>
             <div class="timeline">
                 <div class="timeline-event">
                     <h3>Report #1 – Initial Submission (~July 20, 2025)</h3>
@@ -428,21 +606,27 @@
                 <li><strong>Beyond Bounties:</strong> The true value lies in the research, persistence, and contribution to broader security discussions.</li>
             </ol>
 
+            <div class="callout callout-info">
+                <h4><i class="fas fa-lightbulb"></i> Key Takeaway</h4>
+                <p>Crypto wallet applications require stronger threat modeling that considers accessibility services as a potential attack vector, especially for critical assets like recovery phrases.</p>
+            </div>
+
             <h2><i class="fas fa-check-circle"></i> Conclusion</h2>
             <p>This vulnerability demonstrated that Coinbase Wallet's recovery phrase remained exposed despite claimed mitigations. While the bounty program closed the reports, the research underscores a broader issue: <strong>crypto wallets must adopt stricter safeguards against accessibility abuse.</strong></p>
 
-            <div class="disclaimer">
-                <p><strong>Disclaimer:</strong> This research was conducted ethically under Coinbase's bug bounty program. All sensitive evidence was reported privately prior to this write-up.</p>
+            <div class="callout callout-warning">
+                <h4><i class="fas fa-shield-alt"></i> Disclaimer</h4>
+                <p>This research was conducted ethically under Coinbase's bug bounty program. All sensitive evidence was reported privately prior to this write-up. The vulnerability details are shared to advance security awareness in the cryptocurrency ecosystem.</p>
             </div>
         </div>
 
         <footer class="blog-footer">
-            <p class="author">Written by Omkar Sahni</p>
+            <p class="author">Written by Omkar Sahni | Security Researcher</p>
+            <p>Follow me for more security research and bug bounty insights:</p>
             <div class="social-links">
-                <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
-                <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
-                <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
-                <a href="#" aria-label="Email"><i class="fas fa-envelope"></i></a>
+                <a href="https://x.com/sahniomkar11" aria-label="X (formerly Twitter)"><i class="fab fa-x-twitter"></i></a>
+                <a href="https://www.linkedin.com/in/omkar-sahni-89b952324" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+                <a href="https://github.com/Omkar443" aria-label="GitHub"><i class="fab fa-github"></i></a>
             </div>
         </footer>
     </div>
