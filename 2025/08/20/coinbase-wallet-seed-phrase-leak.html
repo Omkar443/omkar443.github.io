@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Coinbase Wallet Recovery Phrase Leak - Bug Bounty Case Study</title>
+    <style>
+        /* Modern CSS Reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* Global Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        .blog-header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 40px 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .blog-title {
+            font-size: 2.5em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .blog-date {
+            color: #7f8c8d;
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+
+        /* Content Styles */
+        .blog-content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h3 {
+            color: #34495e;
+            margin: 25px 0 10px 0;
+        }
+
+        p {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        strong {
+            color: #e74c3c;
+        }
+
+        em {
+            color: #667eea;
+        }
+
+        /* Timeline Styles */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+            margin: 30px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: linear-gradient(to bottom, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+
+        .timeline-event {
+            position: relative;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(236, 240, 241, 0.5);
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .timeline-event::before {
+            content: '';
+            position: absolute;
+            left: -37px;
+            top: 24px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 4px solid white;
+            box-shadow: 0 0 0 3px #667eea;
+        }
+
+        /* List Styles */
+        ul {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        /* Disclaimer Styles */
+        .disclaimer {
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid #e74c3c;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 5px;
+        }
+
+        /* Footer Styles */
+        .blog-footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            margin-top: 40px;
+        }
+
+        .author {
+            font-style: italic;
+            color: #ecf0f1;
+            font-size: 1.1em;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .blog-title {
+                font-size: 2em;
+            }
+            
+            .blog-header, .blog-content {
+                padding: 20px;
+                margin: 20px 0;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="blog-header">
+            <h1 class="blog-title">The Coinbase Wallet Recovery Phrase Leak: A Case Study in Bug Bounty Challenges</h1>
+            <p class="blog-date">Published on: August 20, 2025</p>
+        </header>
+
+        <div class="blog-content">
+            <h2>Introduction</h2>
+            <p>In July 2025, I discovered a critical vulnerability in the <strong>Coinbase Wallet for Android</strong> that could lead to the <strong>irreversible compromise of a user's cryptocurrency assets</strong>. What followed was a month-long journey through the bug bounty process that ended not with resolution, but with lessons on the challenges of responsible disclosure.</p>
+            <p>This post details the vulnerability, the evidence submitted, and the full timeline of interactions.</p>
+
+            <h2>The Vulnerability: Exposing the Master Key</h2>
+            <p>The <strong>recovery phrase</strong> (seed phrase) is the <em>master key</em> to a cryptocurrency wallet. Anyone who gains it has <strong>permanent control</strong> over all funds. Unlike a password, it cannot be rotated.</p>
+            <p>During testing, I found that Coinbase Wallet displays the recovery phrase after authentication in a standard Android <code>TextView</code>. Unfortunately, this made it visible to the <strong>Android Accessibility Framework</strong>.</p>
+            
+            <h3>Impact:</h3>
+            <p>Any malicious app with the <code>BIND_ACCESSIBILITY_SERVICE</code> permission could silently read and exfiltrate the phrase. Accessibility abuse is a <strong>well-documented malware vector</strong> on Android.</p>
+
+            <h2>The Evidence: Proof-of-Concept</h2>
+            <p>To demonstrate the risk, I created a working PoC:</p>
+            <ul>
+                <li><strong>Functional Android app</strong>: Captures the recovery phrase when displayed.</li>
+                <li><strong>Video demo</strong>: Shows the phrase being read and exfiltrated.</li>
+                <li><strong>Server-side code</strong>: Python script simulating exfiltration to an attacker.</li>
+            </ul>
+            <p>The results were consistent and reproducible.</p>
+
+            <h2>Timeline</h2>
+            <div class="timeline">
+                <div class="timeline-event">
+                    <h3>Report #1 – Initial Submission (~July 20, 2025)</h3>
+                    <p><strong>Finding:</strong> Accessibility exposure of the recovery phrase.</p>
+                    <p><strong>Coinbase Response:</strong> Closed as <em>"Not Applicable"</em>, claiming mitigation via <code>android:importantForAccessibility="no-hide-descendants"</code>.</p>
+                </div>
+
+                <div class="timeline-event">
+                    <h3>Report #2 – Mitigation Bypass (~July 25, 2025)</h3>
+                    <p><strong>Action:</strong> Tested Coinbase's stated mitigation directly.</p>
+                    <p><strong>Result:</strong> Successfully bypassed the control and captured the phrase.</p>
+                    <p><strong>Submission:</strong> New PoC, APK, video, and exfiltration logs titled <em>"Bypass of Accessibility Mitigation."</em></p>
+                    <p><strong>Coinbase's Final Response:</strong> Closed again, this time calling the attack <em>"out of scope"</em> because it required user-granted accessibility permissions.</p>
+                </div>
+
+                <div class="timeline-event">
+                    <h3>Appeal</h3>
+                    <p>I requested HackerOne mediation.</p>
+                    <p><strong>HackerOne's Reply:</strong> Declined, citing "low signal" and stating they could not overrule Coinbase's decision.</p>
+                </div>
+            </div>
+
+            <h2>Analysis & Lessons</h2>
+            <ol>
+                <li><strong>Shifting Goalposts:</strong> Closure reasons shifted from <em>"we already fixed it"</em> to <em>"out of scope"</em>.</li>
+                <li><strong>Critical Asset Risk:</strong> Recovery phrases are not like passwords—exposure equals irreversible loss. Security controls must reflect this.</li>
+                <li><strong>Proof Matters:</strong> Video, code, and reproducible PoC strengthened credibility, even if dismissed.</li>
+                <li><strong>Beyond Bounties:</strong> The true value lies in the research, persistence, and contribution to broader security discussions.</li>
+            </ol>
+
+            <h2>Conclusion</h2>
+            <p>This vulnerability demonstrated that Coinbase Wallet's recovery phrase remained exposed despite claimed mitigations. While the bounty program closed the reports, the research underscores a broader issue: <strong>crypto wallets must adopt stricter safeguards against accessibility abuse.</strong></p>
+
+            <div class="disclaimer">
+                <p><strong>Disclaimer:</strong> This research was conducted ethically under Coinbase's bug bounty program. All sensitive evidence was reported privately prior to this write-up.</p>
+            </div>
+        </div>
+
+        <footer class="blog-footer">
+            <p class="author">Written by Omkar Sahni</p>
+        </footer>
+    </div>
+</body>
+</html>
