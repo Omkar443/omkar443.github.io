@@ -4,17 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Coinbase Wallet Recovery Phrase Leak - Bug Bounty Case Study</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Modern CSS Reset */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
         
         /* Global Styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #0d1117;
+            color: #e6edf3;
             min-height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(rgba(13, 17, 23, 0.9), rgba(13, 17, 23, 0.9)),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23161b22" width="100" height="100"/><path d="M0 0L100 100M100 0L0 100" stroke="%232f3c4d" stroke-width="0.5"/></svg>');
+            z-index: -1;
         }
 
         .container {
@@ -25,64 +45,94 @@
 
         /* Header Styles */
         .blog-header {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
+            background: rgba(22, 27, 34, 0.8);
+            border-radius: 12px;
             padding: 40px;
             margin: 40px 0;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid #30363d;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .blog-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #ff7b72, #d2a8ff, #79c0ff);
         }
 
         .blog-title {
             font-size: 2.5em;
-            color: #2c3e50;
-            margin-bottom: 10px;
-            text-align: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #ff7b72 0%, #79c0ff 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            font-weight: 700;
         }
 
         .blog-date {
-            color: #7f8c8d;
-            text-align: center;
+            color: #7d8590;
             font-size: 1.1em;
-            margin-bottom: 30px;
+            margin-bottom: 10px;
         }
 
         /* Content Styles */
         .blog-content {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
+            background: rgba(22, 27, 34, 0.8);
+            border-radius: 12px;
             padding: 40px;
             margin-bottom: 40px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid #30363d;
         }
 
         h2 {
-            color: #2c3e50;
+            color: #ff7b72;
             margin: 30px 0 15px 0;
             padding-bottom: 10px;
-            border-bottom: 3px solid #667eea;
+            border-bottom: 2px solid #30363d;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h2 i {
+            color: #79c0ff;
         }
 
         h3 {
-            color: #34495e;
+            color: #d2a8ff;
             margin: 25px 0 10px 0;
         }
 
         p {
             margin-bottom: 15px;
             font-size: 1.1em;
+            line-height: 1.7;
         }
 
         strong {
-            color: #e74c3c;
+            color: #ff7b72;
+            font-weight: 600;
         }
 
         em {
-            color: #667eea;
+            color: #79c0ff;
+            font-style: italic;
+        }
+
+        code {
+            background: rgba(110, 118, 129, 0.4);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9em;
+            color: #e6edf3;
         }
 
         /* Timeline Styles */
@@ -98,65 +148,161 @@
             left: 0;
             top: 0;
             height: 100%;
-            width: 4px;
-            background: linear-gradient(to bottom, #667eea, #764ba2);
-            border-radius: 2px;
+            width: 3px;
+            background: linear-gradient(to bottom, #ff7b72, #d2a8ff, #79c0ff);
+            border-radius: 3px;
         }
 
         .timeline-event {
             position: relative;
             margin-bottom: 30px;
             padding: 20px;
-            background: rgba(236, 240, 241, 0.5);
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
+            background: rgba(48, 54, 61, 0.3);
+            border-radius: 8px;
+            border-left: 3px solid #ff7b72;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .timeline-event:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
         .timeline-event::before {
             content: '';
             position: absolute;
-            left: -37px;
+            left: -36px;
             top: 24px;
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
-            background: #667eea;
-            border: 4px solid white;
-            box-shadow: 0 0 0 3px #667eea;
+            background: #ff7b72;
+            border: 3px solid #0d1117;
+            box-shadow: 0 0 0 2px #ff7b72;
+            z-index: 2;
         }
 
         /* List Styles */
-        ul {
+        ul, ol {
             margin: 15px 0;
             padding-left: 30px;
         }
 
         li {
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        ul li::before {
+            content: '■';
+            color: #79c0ff;
+            font-size: 0.8em;
+            margin-right: 10px;
+        }
+
+        ol {
+            counter-reset: item;
+        }
+
+        ol li {
+            counter-increment: item;
+        }
+
+        ol li::before {
+            content: counter(item) ".";
+            color: #ff7b72;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        /* Code block */
+        .code-block {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 20px 0;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            position: relative;
+        }
+
+        .code-block::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 4px 8px;
+            background: #30363d;
+            color: #7d8590;
+            font-size: 0.8em;
+            border-bottom-left-radius: 4px;
+        }
+
+        .code-block.javascript::before {
+            content: 'JavaScript';
+        }
+
+        .code-block.python::before {
+            content: 'Python';
+        }
+
+        .code-comment {
+            color: #8b949e;
+        }
+
+        .code-keyword {
+            color: #ff7b72;
+        }
+
+        .code-string {
+            color: #a5d6ff;
+        }
+
+        .code-function {
+            color: #d2a8ff;
         }
 
         /* Disclaimer Styles */
         .disclaimer {
-            background: rgba(231, 76, 60, 0.1);
-            border-left: 4px solid #e74c3c;
+            background: rgba(255, 123, 114, 0.1);
+            border-left: 4px solid #ff7b72;
             padding: 20px;
             margin: 30px 0;
-            border-radius: 5px;
+            border-radius: 6px;
         }
 
         /* Footer Styles */
         .blog-footer {
             text-align: center;
-            color: white;
-            padding: 20px;
+            padding: 30px 20px;
             margin-top: 40px;
+            color: #7d8590;
+            border-top: 1px solid #30363d;
         }
 
         .author {
             font-style: italic;
-            color: #ecf0f1;
             font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .social-links a {
+            color: #7d8590;
+            font-size: 1.2em;
+            transition: color 0.2s ease;
+        }
+
+        .social-links a:hover {
+            color: #79c0ff;
         }
 
         /* Responsive Design */
@@ -166,13 +312,42 @@
             }
             
             .blog-header, .blog-content {
-                padding: 20px;
-                margin: 20px 0;
+                padding: 25px;
+                margin: 25px 0;
             }
             
             .container {
-                padding: 10px;
+                padding: 15px;
             }
+        }
+
+        @media (max-width: 480px) {
+            .blog-title {
+                font-size: 1.7em;
+            }
+            
+            .blog-header, .blog-content {
+                padding: 20px 15px;
+            }
+            
+            h2 {
+                font-size: 1.5em;
+            }
+        }
+
+        /* Animation for subtle effects */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .blog-header, .blog-content {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Selection color */
+        ::selection {
+            background: rgba(121, 192, 255, 0.3);
         }
     </style>
 </head>
@@ -184,27 +359,45 @@
         </header>
 
         <div class="blog-content">
-            <h2>Introduction</h2>
+            <h2><i class="fas fa-door-open"></i> Introduction</h2>
             <p>In July 2025, I discovered a critical vulnerability in the <strong>Coinbase Wallet for Android</strong> that could lead to the <strong>irreversible compromise of a user's cryptocurrency assets</strong>. What followed was a month-long journey through the bug bounty process that ended not with resolution, but with lessons on the challenges of responsible disclosure.</p>
             <p>This post details the vulnerability, the evidence submitted, and the full timeline of interactions.</p>
 
-            <h2>The Vulnerability: Exposing the Master Key</h2>
+            <h2><i class="fas fa-key"></i> The Vulnerability: Exposing the Master Key</h2>
             <p>The <strong>recovery phrase</strong> (seed phrase) is the <em>master key</em> to a cryptocurrency wallet. Anyone who gains it has <strong>permanent control</strong> over all funds. Unlike a password, it cannot be rotated.</p>
+            
+            <div class="code-block javascript">
+                <span class="code-comment">// Security risk assessment</span><br>
+                <span class="code-keyword">const</span> <span class="code-function">assessRisk</span> = () => {<br>
+                &nbsp;&nbsp;<span class="code-keyword">return</span> <span class="code-string">'CRITICAL: Irreversible asset compromise'</span>;<br>
+                };
+            </div>
+            
             <p>During testing, I found that Coinbase Wallet displays the recovery phrase after authentication in a standard Android <code>TextView</code>. Unfortunately, this made it visible to the <strong>Android Accessibility Framework</strong>.</p>
             
             <h3>Impact:</h3>
             <p>Any malicious app with the <code>BIND_ACCESSIBILITY_SERVICE</code> permission could silently read and exfiltrate the phrase. Accessibility abuse is a <strong>well-documented malware vector</strong> on Android.</p>
 
-            <h2>The Evidence: Proof-of-Concept</h2>
+            <h2><i class="fas fa-vial"></i> The Evidence: Proof-of-Concept</h2>
             <p>To demonstrate the risk, I created a working PoC:</p>
             <ul>
                 <li><strong>Functional Android app</strong>: Captures the recovery phrase when displayed.</li>
                 <li><strong>Video demo</strong>: Shows the phrase being read and exfiltrated.</li>
                 <li><strong>Server-side code</strong>: Python script simulating exfiltration to an attacker.</li>
             </ul>
+
+            <div class="code-block python">
+                <span class="code-comment"># Simplified proof-of-concept code</span><br>
+                <span class="code-keyword">class</span> <span class="code-function">MaliciousAccessibilityService</span>:<br>
+                &nbsp;&nbsp;<span class="code-keyword">def</span> <span class="code-function">on_accessibility_event</span>(self, event):<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">if</span> self.<span class="code-function">is_target_app</span>(event):<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seed_phrase = self.<span class="code-function">extract_text</span>(event)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.<span class="code-function">exfiltrate</span>(seed_phrase)
+            </div>
+
             <p>The results were consistent and reproducible.</p>
 
-            <h2>Timeline</h2>
+            <h2><i class="fas fa-history"></i> Timeline</h2>
             <div class="timeline">
                 <div class="timeline-event">
                     <h3>Report #1 – Initial Submission (~July 20, 2025)</h3>
@@ -216,7 +409,7 @@
                     <h3>Report #2 – Mitigation Bypass (~July 25, 2025)</h3>
                     <p><strong>Action:</strong> Tested Coinbase's stated mitigation directly.</p>
                     <p><strong>Result:</strong> Successfully bypassed the control and captured the phrase.</p>
-                    <p><strong>Submission:</strong> New PoC, APK, video, and exfiltration logs titled <em>"Bypass of Accessibility Mitigation."</em></p>
+                    <p><strong>Submission:</strong> New PoC, APK, video, and exfiltrated logs titled <em>"Bypass of Accessibility Mitigation."</em></p>
                     <p><strong>Coinbase's Final Response:</strong> Closed again, this time calling the attack <em>"out of scope"</em> because it required user-granted accessibility permissions.</p>
                 </div>
 
@@ -227,7 +420,7 @@
                 </div>
             </div>
 
-            <h2>Analysis & Lessons</h2>
+            <h2><i class="fas fa-chart-line"></i> Analysis & Lessons</h2>
             <ol>
                 <li><strong>Shifting Goalposts:</strong> Closure reasons shifted from <em>"we already fixed it"</em> to <em>"out of scope"</em>.</li>
                 <li><strong>Critical Asset Risk:</strong> Recovery phrases are not like passwords—exposure equals irreversible loss. Security controls must reflect this.</li>
@@ -235,7 +428,7 @@
                 <li><strong>Beyond Bounties:</strong> The true value lies in the research, persistence, and contribution to broader security discussions.</li>
             </ol>
 
-            <h2>Conclusion</h2>
+            <h2><i class="fas fa-check-circle"></i> Conclusion</h2>
             <p>This vulnerability demonstrated that Coinbase Wallet's recovery phrase remained exposed despite claimed mitigations. While the bounty program closed the reports, the research underscores a broader issue: <strong>crypto wallets must adopt stricter safeguards against accessibility abuse.</strong></p>
 
             <div class="disclaimer">
@@ -245,6 +438,12 @@
 
         <footer class="blog-footer">
             <p class="author">Written by Omkar Sahni</p>
+            <div class="social-links">
+                <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+                <a href="#" aria-label="Email"><i class="fas fa-envelope"></i></a>
+            </div>
         </footer>
     </div>
 </body>
